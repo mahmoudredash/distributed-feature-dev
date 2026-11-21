@@ -1,0 +1,69 @@
+{
+  "_comment": "Copy to <repo>/.orch/config.json. Every key except workers/agents is optional.",
+
+  "base_branch": "main",
+  "repo_url": "git@github.com:YOUR_ORG/YOUR_REPO.git",
+
+  "verify": "npm run lint && npm run build && npm test",
+  "protected_paths": ["tests/contract/*", "tests/contract/**"],
+
+  "task_timeout_min": 45,
+  "self_fix_attempts": 2,
+  "stall_minutes": 15,
+  "max_fix_rounds": 3,
+  "max_total_rounds": 5,
+
+  "slots": { "cpu_per_slot": 2, "mem_per_slot_gb": 3, "max_per_worker": 4, "max_load_ratio": 0.9 },
+
+  "policy_file": ".config/agent-model-policy.yaml",
+
+  "agents": {
+    "claude": {
+      "cmd": "claude -p \"$(cat {prompt_file})\" --dangerously-skip-permissions {model_flag}",
+      "model_flag": "--model {model}",
+      "quota_patterns": "usage limit|rate.?limit|quota|credit balance|429"
+    },
+    "opencode": {
+      "cmd": "opencode run {model_flag} \"$(cat {prompt_file})\"",
+      "model_flag": "--model {model}",
+      "quota_patterns": "rate.?limit|quota|insufficient|429"
+    },
+    "agy": {
+      "_comment": "VERIFY this headless command and model flag on your machine before use.",
+      "cmd": "agy -p \"$(cat {prompt_file})\" {model_flag}",
+      "model_flag": "",
+      "quota_patterns": "rate.?limit|quota|resource.?exhausted|429"
+    }
+  },
+
+  "workers": [
+    {
+      "name": "pc1", "host": "192.168.1.11", "user": "dev", "port": 22,
+      "agents": ["claude", "opencode"],
+      "repo_path": "~/orch/YOUR_REPO",
+      "max_slots": "auto",
+      "strengths": "strong CPU; backend, database, APIs"
+    },
+    {
+      "name": "pc2", "host": "192.168.1.12", "user": "dev",
+      "agents": ["opencode", "agy"],
+      "repo_path": "~/orch/YOUR_REPO",
+      "max_slots": "auto",
+      "strengths": "frontend, UI components"
+    },
+    {
+      "name": "pc3", "host": "192.168.1.13", "user": "dev",
+      "agents": ["agy", "opencode"],
+      "repo_path": "~/orch/YOUR_REPO",
+      "max_slots": 2,
+      "strengths": "weaker machine; tests, docs, QA"
+    },
+    {
+      "_comment": "Optional: let the manager machine's spare cores work too.",
+      "name": "self", "host": "localhost",
+      "agents": ["claude"],
+      "repo_path": "~/orch/YOUR_REPO-worker",
+      "max_slots": 1
+    }
+  ]
+}
